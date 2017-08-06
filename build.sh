@@ -11,7 +11,7 @@ JOBS=4
 MULTIARCH=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
 
 sudo apt-get -y update
-sudo apt-get -y upgrade
+sudo apt-get -y --allow-unauthenticated upgrade  # google chrome issues
 sudo apt-get -y install --no-install-recommends \
   fuse git wget build-essential autoconf automake libtool pkg-config gettext \
   libasound2-dev libass-dev libgl1-mesa-dev libgtk2.0-dev libpng-dev libjpeg-dev libfreetype6-dev \

@@ -8,10 +8,11 @@ export LANG=C
 APP="VLC"
 LOWERAPP="vlc"
 JOBS=4
+MULTIARCH=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
 
-apt-get -y update
-apt-get -y upgrade
-apt-get -y install --no-install-recommends \
+sudo apt-get -y update
+sudo apt-get -y upgrade
+sudo apt-get -y install --no-install-recommends \
   fuse git wget build-essential autoconf automake libtool pkg-config gettext \
   libasound2-dev libass-dev libgl1-mesa-dev libgtk2.0-dev libpng-dev libjpeg-dev libfreetype6-dev \
   libx11-dev libxext-dev libxinerama-dev libxpm-dev \
@@ -147,7 +148,7 @@ cd $APP.AppDir
 
 # copy files
 cp -r ../usr .
-cp -r /usr/lib/x86_64-linux-gnu/qt4/plugins/ ./usr/lib/
+cp -r /usr/lib/$MULTIARCH/qt4/plugins/ ./usr/lib/
 cp ../SOURCES .
 
 # qt.conf

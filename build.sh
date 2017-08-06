@@ -19,7 +19,7 @@ sudo apt-get -y install --no-install-recommends \
   libxcb-composite0-dev libxcb-keysyms1-dev libxcb-randr0-dev libxcb-shm0-dev libxcb-xv0-dev libxcb1-dev \
   liblua5.2-dev lua5.2 libmad0-dev liba52-0.7.4-dev libgcrypt11-dev libxml2-dev zlib1g-dev \
   libgl1-mesa-dev libdbus-1-dev libidn11-dev libnotify-dev libtag1-dev libva-dev libcddb2-dev libudev-dev \
-  libogg-dev libvorbis-dev libtar-dev libpulse-dev librsvg2-dev \
+  libogg-dev libvorbis-dev libmatroska-dev libtar-dev libpulse-dev librsvg2-dev \
   libqt4-dev-bin libqt4-dev libqt4-opengl-dev
 
 VERSION=$(wget -q "https://www.videolan.org/vlc/#download" -O - | grep -o -E '"Linux","latestVersion":"([^"#]+)"' | cut -d'"' -f6)

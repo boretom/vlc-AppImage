@@ -1,6 +1,7 @@
 dist: trusty
 language: cpp
 compiler: gcc
+sudo: required
 
 script:
   - bash ./build.sh

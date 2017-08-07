@@ -208,6 +208,42 @@ rm -vf $(find lib -name libpulse.so.0*) $(find lib -name libpulsecommon-4.0.so) 
 rm -rf include lib/pkgconfig share/doc share/man
 cd -
 
+# appdata file
+mkdir -p ./usr/share/appdata
+cat <<EOF> ./usr/share/appdata/${LOWERAPP}.appdata.xml  # from http://tinyurl.com/y7tq3u4s
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2016 Jean-Baptiste Kempf -->
+
+<component type="desktop">
+    <id>${LOWERAPP}.desktop</id>
+    <metadata_license>CC0-1.0</metadata_license>
+    <name>VLC</name>
+    <summary>VLC media player, the open-source multimedia player</summary>
+    <description>
+        <p>
+            VLC is a free and open source cross-platform multimedia player and
+            framework that plays most multimedia files as well as DVDs, Audio CDs,
+            VCDs, and various streaming protocols.
+        </p>
+    </description>
+    <url type="homepage">https://www.videolan.org/vlc/</url>
+    <url type="bugtracker">https://trac.videolan.org/vlc/</url>
+    <url type="donation">https://www.videolan.org/contribute.html</url>
+    <releases>
+        <release version="$VERSION" />
+    </releases>
+    <project_group>VideoLAN</project_group>
+    <project_license>GPL-2.0+</project_license>
+    <developer_name>VideoLAN et al.</developer_name>
+    <update_contact>vlc-devel -- videolan.org</update_contact>
+    <screenshots>
+        <screenshot type="default">http://images.videolan.org/vlc/screenshots/2.0.0/vlc-2.0-poney.jpg</screenshot>
+        <screenshot type="default">http://images.videolan.org/vlc/screenshots/2.0.0/vlc-2.0-gnome3-open.jpg</screenshot>
+        <screenshot type="default">http://images.videolan.org/vlc/screenshots/2.0.0/vlc-2.0-gnome3-debian.jpg</screenshot>
+    </screenshots>
+</component>
+EOF
+
 # bundle AppImage
 unset LD_LIBRARY_PATH
 wget -c -q https://github.com/AppImage/AppImages/raw/master/functions.sh -O ../functions.sh

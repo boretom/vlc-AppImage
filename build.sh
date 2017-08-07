@@ -162,6 +162,7 @@ EOF
 cd usr
 rm -vf bin/bd* bin/*asm lib/*.so
 rm -vf $(find lib -name '*.la') $(find lib -name '*.a')
+rm -vf $(find lib -name libpulse.so.0*) $(find lib -name libpulsecommon-4.0.so)  # pulseaudio issues
 rm -rf include lib/pkgconfig share/doc share/man
 cd -
 
@@ -175,9 +176,10 @@ delete_blacklisted
 rm -rf $(echo "$PWD" | cut -d '/' -f2)  # removes i.e. "home" from AppDir
 get_desktop
 fix_desktop ${LOWERAPP}.desktop
+sed -i 's|/usr/bin/||g' ${LOWERAPP}.desktop  # "can't find /usr/bin/vlc"
 get_icon
 patch_usr
 get_apprun
 cd ..
-generate_appimage
+generate_type2_appimage
 

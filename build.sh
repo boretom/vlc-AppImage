@@ -1,5 +1,4 @@
 #!/bin/bash
-# tested on Debian 7 and Ubuntu 14.04
 set -e
 set -x
 
@@ -11,16 +10,59 @@ JOBS=4
 MULTIARCH=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
 
 sudo apt-get -y update
-sudo apt-get -y --allow-unauthenticated upgrade  # google chrome issues
+sudo apt-get -y --allow-unauthenticated upgrade  # google chrome issues on Travis
 sudo apt-get -y install --no-install-recommends \
-  fuse git wget build-essential autoconf automake libtool pkg-config gettext \
-  libasound2-dev libass-dev libgl1-mesa-dev libgtk2.0-dev libpng-dev libjpeg-dev libfreetype6-dev \
-  libx11-dev libxext-dev libxinerama-dev libxpm-dev \
-  libxcb-composite0-dev libxcb-keysyms1-dev libxcb-randr0-dev libxcb-shm0-dev libxcb-xv0-dev libxcb1-dev \
-  liblua5.2-dev lua5.2 libmad0-dev liba52-0.7.4-dev libgcrypt11-dev libxml2-dev zlib1g-dev \
-  libgl1-mesa-dev libdbus-1-dev libidn11-dev libnotify-dev libtag1-dev libva-dev libcddb2-dev libudev-dev \
-  libogg-dev libvorbis-dev libmatroska-dev libtar-dev libpulse-dev librsvg2-dev \
-  libqt4-dev-bin libqt4-dev libqt4-opengl-dev
+ autoconf \
+ automake \
+ build-essential \
+ fuse \
+ gettext \
+ git \
+ liba52-0.7.4-dev \
+ libasound2-dev \
+ libass-dev \
+ libcddb2-dev \
+ libdbus-1-dev \
+ libfreetype6-dev \
+ libgcrypt11-dev \
+ libgl1-mesa-dev \
+ libgl1-mesa-dev \
+ libgnutls28-dev \
+ libgtk2.0-dev \
+ libidn11-dev \
+ libjpeg-dev \
+ liblua5.2-dev \
+ libmad0-dev \
+ libmatroska-dev \
+ libnotify-dev \
+ libogg-dev \
+ libpng-dev \
+ libpulse-dev \
+ libqt4-dev \
+ libqt4-dev-bin \
+ libqt4-opengl-dev \
+ librsvg2-dev \
+ libtag1-dev \
+ libtar-dev \
+ libtool \
+ libudev-dev \
+ libva-dev \
+ libvorbis-dev \
+ libx11-dev \
+ libxcb1-dev \
+ libxcb-composite0-dev \
+ libxcb-keysyms1-dev \
+ libxcb-randr0-dev \
+ libxcb-shm0-dev \
+ libxcb-xv0-dev \
+ libxext-dev \
+ libxinerama-dev \
+ libxml2-dev \
+ libxpm-dev \
+ lua5.2 \
+ pkg-config \
+ wget \
+ zlib1g-dev
 
 VERSION=$(wget -q "https://www.videolan.org/vlc/#download" -O - | grep -o -E '"Linux","latestVersion":"([^"#]+)"' | cut -d'"' -f6)
 
@@ -130,7 +172,7 @@ fi
 rm -rf vlc-$VERSION
 tar xf vlc-$VERSION.tar.xz
 cd vlc-$VERSION
-./configure --prefix=/usr --disable-rpath --enable-skins2 --enable-libtar --disable-ncurses
+./configure --prefix=/usr --disable-rpath --enable-skins2 --disable-ncurses
 sed -i '/# pragma STDC/d' config.h  # -Wunknown-pragmas
 make -j$JOBS
 make install-strip DESTDIR="$BUILD_ROOT"

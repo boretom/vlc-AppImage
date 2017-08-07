@@ -204,8 +204,10 @@ EOF
 cd usr
 rm -vf bin/bd* bin/*asm lib/*.so
 rm -vf $(find lib -name '*.la') $(find lib -name '*.a')
-rm -vf $(find lib -name libpulse.so.0*) $(find lib -name libpulsecommon-4.0.so)  # pulseaudio issues
 rm -rf include lib/pkgconfig share/doc share/man
+# pulseaudio issues
+rm -rvf ./usr/lib/$MULTIARCH/pulseaudio/
+rm -vf ./usr/lib/$MULTIARCH/libpulse.so.0
 cd -
 
 # appdata file

@@ -16,6 +16,7 @@ sudo apt-get -y install --no-install-recommends \
  autoconf \
  automake \
  build-essential \
+ cmake \
  fuse \
  gettext \
  git \
@@ -26,7 +27,6 @@ sudo apt-get -y install --no-install-recommends \
  libdbus-1-dev \
  libfreetype6-dev \
  libgcrypt11-dev \
- libgl1-mesa-dev \
  libgl1-mesa-dev \
  libgnutls28-dev \
  libgtk2.0-dev \
@@ -61,6 +61,7 @@ sudo apt-get -y install --no-install-recommends \
  libxml2-dev \
  libxpm-dev \
  lua5.2 \
+ mercurial \
  pkg-config \
  wget \
  zlib1g-dev
@@ -76,7 +77,10 @@ test -d libdvdcss || git clone --depth 1 "http://code.videolan.org/videolan/libd
 test -d libdvdread || git clone --depth 1 "http://code.videolan.org/videolan/libdvdread.git"
 test -d libdvdnav || git clone --depth 1 "http://code.videolan.org/videolan/libdvdnav.git"
 test -d libbluray || git clone --depth 1 "http://git.videolan.org/git/libbluray.git"
+test -d x264 || git clone --depth 1 "http://git.videolan.org/git/x264.git"
+test -d x265 || hg clone "https://bitbucket.org/multicoreware/x265"
 wget -c "http://www.tortall.net/projects/yasm/releases/yasm-1.3.0.tar.gz"
+wget -c "http://www.nasm.us/pub/nasm/releasebuilds/2.13.01/nasm-2.13.01.tar.xz"
 wget -c "http://download.videolan.org/pub/videolan/vlc/$VERSION/vlc-$VERSION.tar.xz"
 
 # sources
@@ -87,6 +91,8 @@ libdvdcss:   http://code.videolan.org/videolan/libdvdcss.git   $(git -C libdvdcs
 libdvdread:  http://code.videolan.org/videolan/libdvdread.git  $(git -C libdvdread log -1 | head -n1)
 libdvdnav:   http://code.videolan.org/videolan/libdvdnav.git   $(git -C libdvdnav log -1 | head -n1)
 libbluray:   http://git.videolan.org/git/libbluray.git         $(git -C libdbluray log -1 | head -n1)
+x264:        http://git.videolan.org/git/x264.git              $(git -C x264 log -1 | head -n1)
+x265:        https://bitbucket.org/multicoreware/x265          commit $(cd x265 && hg log -r. --template "{node}")
 
 Build system:
 $(lsb_release -irc)
@@ -105,6 +111,17 @@ export CXXFLAGS="$CFLAGS"
 export CPPFLAGS="-I$PREFIX/include -D_FORTIFY_SOURCE=2"
 export LDFLAGS="-Wl,-z,relro -Wl,--as-needed -L$PREFIX/lib"
 
+# nasm
+if [ ! -e ./usr/bin/nasm ]; then
+  rm -rf nasm-2.13.01
+  tar xf nasm-2.13.01.tar.xz
+  cd nasm-2.13.01
+  ./configure --prefix="$PREFIX"
+  make -j$JOBS V=0
+  make install
+  cd -
+fi
+
 # yasm
 if [ ! -e ./usr/bin/yasm ]; then
   rm -rf yasm-1.3.0
@@ -113,6 +130,27 @@ if [ ! -e ./usr/bin/yasm ]; then
   ./configure --prefix="$PREFIX"
   make -j$JOBS V=0
   make install-strip
+  cd -
+fi
+
+# x264
+if [ ! -e ./usr/lib/libx264.so ]; then
+  cd x264
+  ./configure --prefix="$PREFIX" --enable-shared --disable-cli --enable-strip
+  make clean
+  make -j$JOBS V=0
+  make install
+  cd -
+fi
+
+# x265
+if [ ! -e ./usr/lib/libx265.so ]; then
+  rm -rf x265/source/build
+  mkdir -p x265/source/build
+  cd x265/source/build
+  cmake .. -DCMAKE_CXX_FLAGS="$CXXFLAGS" -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS -s" -DCMAKE_INSTALL_PREFIX="$PREFIX" -DENABLE_CLI="OFF" -DENABLE_LIBNUMA="OFF"
+  make -j$JOBS
+  make install
   cd -
 fi
 
@@ -209,14 +247,11 @@ cd usr
 rm -vf bin/bd* bin/*asm lib/*.so
 rm -vf $(find lib -name '*.la') $(find lib -name '*.a')
 rm -rf include lib/pkgconfig share/doc share/man
-# pulseaudio issues
-rm -rvf lib/$MULTIARCH/pulseaudio/
-rm -vf lib/$MULTIARCH/libpulse.so.0
 cd -
 
 # appdata file
-mkdir -p ./usr/share/appdata
-cat <<EOF> ./usr/share/appdata/${LOWERAPP}.appdata.xml  # from http://tinyurl.com/y7tq3u4s
+mkdir -p ./usr/share/metainfo
+cat <<EOF> ./usr/share/metainfo/${LOWERAPP}.appdata.xml  # from http://tinyurl.com/y7tq3u4s
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Copyright 2016 Jean-Baptiste Kempf -->
 
@@ -257,6 +292,7 @@ wget -c -q https://github.com/AppImage/AppImages/raw/master/functions.sh -O ../f
 copy_deps
 move_lib
 delete_blacklisted
+rm -rvf usr/lib/$MULTIARCH/pulseaudio/ usr/lib/$MULTIARCH/libpulse.so.0  # pulseaudio issues
 rm -rf $(echo "$PWD" | cut -d '/' -f2)  # removes i.e. "home" from AppDir
 get_desktop
 fix_desktop ${LOWERAPP}.desktop

@@ -93,6 +93,9 @@ libbluray:   http://git.videolan.org/git/libbluray.git         $(git -C libdblur
 Build system:
 $(lsb_release -irc)
 $(uname -mo)
+
+Package repositories:
+$(cat /etc/apt/sources.list /etc/apt/sources.list.d/* | grep '^deb ')
 EOF
 
 BUILD_ROOT="$PWD"

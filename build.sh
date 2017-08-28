@@ -9,6 +9,9 @@ LOWERAPP="vlc"
 JOBS=4
 MULTIARCH=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
 
+sudo apt-get -y update
+sudo apt-get -y --allow-unauthenticated upgrade  # google chrome issues on Travis
+
 sudo add-apt-repository -y ppa:djcj/gnutls-patched
 sudo apt-get -y update
 sudo apt-get -y --allow-unauthenticated upgrade  # google chrome issues on Travis

@@ -20,11 +20,13 @@ sudo apt-get -y install --no-install-recommends \
  fuse \
  gettext \
  git \
+ librsvg2-bin \
  liba52-0.7.4-dev \
  libasound2-dev \
  libass-dev \
  libcddb2-dev \
  libdbus-1-dev \
+ libfontconfig1-dev \
  libfreetype6-dev \
  libgcrypt11-dev \
  libgl1-mesa-dev \
@@ -57,6 +59,7 @@ sudo apt-get -y install --no-install-recommends \
  libxcb-shm0-dev \
  libxcb-xv0-dev \
  libxext-dev \
+ libxft-dev \
  libxinerama-dev \
  libxml2-dev \
  libxpm-dev \
@@ -66,7 +69,10 @@ sudo apt-get -y install --no-install-recommends \
  wget \
  zlib1g-dev
 
+./dialog/build-dialog.sh
+
 VERSION=$(wget -q "https://www.videolan.org/vlc/#download" -O - | grep -o -E '"Linux","latestVersion":"([^"#]+)"' | cut -d'"' -f6)
+TOP="$PWD"
 
 mkdir -p vlc-build
 cd vlc-build
@@ -90,7 +96,7 @@ ffmpeg:      https://github.com/FFmpeg/FFmpeg.git              $(git -C ffmpeg l
 libdvdcss:   http://code.videolan.org/videolan/libdvdcss.git   $(git -C libdvdcss log -1 | head -n1)
 libdvdread:  http://code.videolan.org/videolan/libdvdread.git  $(git -C libdvdread log -1 | head -n1)
 libdvdnav:   http://code.videolan.org/videolan/libdvdnav.git   $(git -C libdvdnav log -1 | head -n1)
-libbluray:   http://git.videolan.org/git/libbluray.git         $(git -C libdbluray log -1 | head -n1)
+libbluray:   http://git.videolan.org/git/libbluray.git         $(git -C libbluray log -1 | head -n1)
 x264:        http://git.videolan.org/git/x264.git              $(git -C x264 log -1 | head -n1)
 x265:        https://bitbucket.org/multicoreware/x265          commit $(cd x265 && hg log -r. --template "{node}")
 
@@ -216,6 +222,7 @@ tar xf vlc-$VERSION.tar.xz
 cd vlc-$VERSION
 ./configure --prefix=/usr --disable-rpath --enable-skins2 --disable-ncurses
 sed -i '/# pragma STDC/d' config.h  # -Wunknown-pragmas
+make clean
 make -j$JOBS
 make install-strip DESTDIR="$BUILD_ROOT"
 cd -
@@ -250,40 +257,9 @@ rm -rf include lib/pkgconfig share/doc share/man
 cd -
 
 # appdata file
-mkdir -p ./usr/share/metainfo
-cat <<EOF> ./usr/share/metainfo/${LOWERAPP}.appdata.xml  # from http://tinyurl.com/y7tq3u4s
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Copyright 2016 Jean-Baptiste Kempf -->
-
-<component type="desktop">
-    <id>${LOWERAPP}.desktop</id>
-    <metadata_license>CC0-1.0</metadata_license>
-    <name>VLC</name>
-    <summary>VLC media player, the open-source multimedia player</summary>
-    <description>
-        <p>
-            VLC is a free and open source cross-platform multimedia player and
-            framework that plays most multimedia files as well as DVDs, Audio CDs,
-            VCDs, and various streaming protocols.
-        </p>
-    </description>
-    <url type="homepage">https://www.videolan.org/vlc/</url>
-    <url type="bugtracker">https://trac.videolan.org/vlc/</url>
-    <url type="donation">https://www.videolan.org/contribute.html</url>
-    <releases>
-        <release version="$VERSION" />
-    </releases>
-    <project_group>VideoLAN</project_group>
-    <project_license>GPL-2.0+</project_license>
-    <developer_name>VideoLAN et al.</developer_name>
-    <update_contact>vlc-devel -- videolan.org</update_contact>
-    <screenshots>
-        <screenshot type="default">http://images.videolan.org/vlc/screenshots/2.0.0/vlc-2.0-poney.jpg</screenshot>
-        <screenshot type="default">http://images.videolan.org/vlc/screenshots/2.0.0/vlc-2.0-gnome3-open.jpg</screenshot>
-        <screenshot type="default">http://images.videolan.org/vlc/screenshots/2.0.0/vlc-2.0-gnome3-debian.jpg</screenshot>
-    </screenshots>
-</component>
-EOF
+mkdir -p usr/share/appdata
+cp "$TOP/vlc.appdata.xml" usr/share/appdata/  # from http://tinyurl.com/y7tq3u4s
+ln -s appdata usr/share/metainfo
 
 # bundle AppImage
 unset LD_LIBRARY_PATH
@@ -296,10 +272,16 @@ rm -rvf usr/lib/$MULTIARCH/pulseaudio/ usr/lib/$MULTIARCH/libpulse.so.0  # pulse
 rm -rf $(echo "$PWD" | cut -d '/' -f2)  # removes i.e. "home" from AppDir
 get_desktop
 fix_desktop ${LOWERAPP}.desktop
-sed -i 's|/usr/bin/||g' ${LOWERAPP}.desktop  # "can't find /usr/bin/vlc"
+sed -i "s|/usr/bin/vlc|${LOWERAPP}.wrapper|g" ${LOWERAPP}.desktop  # "can't find /usr/bin/vlc"
 get_icon
 patch_usr
 get_apprun
+
+# desktop integration
+cp "$TOP/dialog/build/dialog" .
+cp "$TOP/dialog/desktopintegration.sh" usr/bin/${LOWERAPP}.wrapper
+chmod a+x usr/bin/${LOWERAPP}.wrapper
+
 cd ..
 generate_type2_appimage
 

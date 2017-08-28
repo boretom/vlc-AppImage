@@ -1,0 +1,296 @@
+#!/bin/bash
+
+# Copyright (c) 2004-2017 Simon Peter
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# The purpose of this script is to provide lightweight desktop integration
+# into the host system without special help from the host system.
+# If you want to use it, then place this in usr/bin/$APPNAME.wrapper
+# and set it as the Exec= line of the .desktop file in the AppImage.
+#
+# For example, to install the appropriate icons for Scribus,
+# put them into the AppDir at the following locations:
+#
+# ./usr/share/icons/default/128x128/apps/scribus.png
+# ./usr/share/icons/default/128x128/mimetypes/application-vnd.scribus.png
+#
+# Note that the filename application-vnd.scribus.png is derived from
+# and must be match MimeType=application/vnd.scribus; in scribus.desktop
+# (with "/" characters replaced by "-").
+#
+# Then, change Exec=scribus to Exec=scribus.wrapper and place the script
+# below in usr/bin/scribus.wrapper and make it executable.
+# When you run AppRun, then AppRun runs the wrapper script below
+# which in turn will run the main application.
+#
+# TODO:
+# Handle multiple versions of the same AppImage?
+# Handle removed AppImages? Currently we are just setting TryExec=
+# See http://specifications.freedesktop.org/thumbnail-spec/thumbnail-spec-latest.html#DELETE
+# Possibly move this to the C runtime that is part of every AppImage?
+
+# Exit on errors
+set -e
+
+# Be verbose if $DEBUG=1 is set
+if [ ! -z "$DEBUG" ] ; then
+  env
+  set -x
+fi
+
+THIS="$0"
+args=("$@") # http://stackoverflow.com/questions/3190818/
+NUMBER_OF_ARGS="$#"
+
+# Please do not change $VENDORPREFIX as it will allow for desktop files
+# belonging to AppImages to be recognized by future AppImageKit components
+# such as desktop integration daemons
+VENDORPREFIX=appimagekit
+
+find-up () {
+  path="$(dirname "$(readlink -f "${THIS}")")"
+  while [[ "$path" != "" && ! -e "$path/$1" ]]; do
+    path=${path%/*}
+  done
+  echo -n "$path" # Needs to return something
+}
+
+if [ -z $APPDIR ] ; then
+  # Find the AppDir. It is the directory that contains AppRun.
+  # This assumes that this script resides inside the AppDir or a subdirectory.
+  # If this script is run inside an AppImage, then the AppImage runtime
+  # likely has already set $APPDIR
+  APPDIR=$(find-up "AppRun")
+fi
+
+FILENAME="$(readlink -f "${THIS}")"
+DIRNAME=$(dirname $FILENAME)
+
+DESKTOPFILE=$(find "$APPDIR" -maxdepth 1 -name "*.desktop" | head -n 1)
+DESKTOPFILE_NAME=$(basename "${DESKTOPFILE}")
+
+APP_FULL=$(sed -n -e 's/^Name=//p' "${DESKTOPFILE}" | head -n 1)
+APP=$(echo "$APP_FULL" | tr -c -d '[:alnum:]')
+if [ -z "$APP" ] || [ -z "$APP_FULL" ] ; then
+  APP=$(echo "$DESKTOPFILE_NAME" | sed -e 's/.desktop//g')
+  APP_FULL="$APP"
+fi
+
+RETURN="yes"
+
+if [[ "$FILENAME" != *.wrapper ]] ; then
+  echo "${THIS} is not named correctly. It should be named \$Exec.wrapper"
+  exit 0
+fi
+
+BIN=$(echo "$FILENAME" | sed -e 's|.wrapper||g')
+if [[ ! -f "$BIN" ]] ; then
+  echo "$BIN not found"
+  exit 0
+fi
+
+trap atexit EXIT
+
+# Note that the following handles 0, 1 or more arguments (file paths)
+# which can include blanks but uses a bashism; can the same be achieved
+# in POSIX-shell? (FIXME)
+# http://stackoverflow.com/questions/3190818
+atexit()
+{
+  if [ -z "$SKIP" ] ; then
+    if [ $NUMBER_OF_ARGS -eq 0 ] ; then
+      exec "${BIN}"
+    else
+      exec "${BIN}" "${args[@]}"
+    fi
+  fi
+}
+
+check_prevent()
+{
+  FILE=$1
+  if [ -e "$FILE" ] ; then
+    exit 0
+  fi
+}
+
+check_dep()
+{
+  DEP=$1
+  if [ -z $(which $DEP) ] ; then
+    echo "$DEP is missing. Skipping ${THIS}."
+    exit 0
+  fi
+}
+
+# Determine where the desktop file should be installed
+if [[ $EUID -ne 0 ]]; then
+   DESTINATION_DIR_DESKTOP="$HOME/.local/share/applications"
+   STAMP_DIR="$HOME/.local/share/$VENDORPREFIX"
+   SYSTEM_WIDE=""
+else
+   # TODO: Check $XDG_DATA_DIRS
+   DESTINATION_DIR_DESKTOP="/usr/local/share/applications"
+   STAMP_DIR="/etc/$VENDORPREFIX"
+   SYSTEM_WIDE="--mode system" # for xdg-mime and xdg-icon-resource
+fi
+
+# Remove desktop integration for this AppImage
+if [ "x$1" = "x--remove-appimage-desktop-integration" ] ; then
+  SKIP="yes"
+  rm -f "$STAMP_DIR/${APP}_no_desktopintegration" "$DESTINATION_DIR_DESKTOP/$VENDORPREFIX-$DESKTOPFILE_NAME"
+  check_dep xdg-desktop-menu
+  xdg-desktop-menu forceupdate
+  exit 0
+fi
+
+# Exit immediately if one of these files is present
+# (e.g., because the desktop environment wants to handle desktop integration itself)
+check_prevent "$HOME/.local/share/$VENDORPREFIX/no_desktopintegration"
+check_prevent "/usr/share/$VENDORPREFIX/no_desktopintegration"
+check_prevent "/etc/$VENDORPREFIX/no_desktopintegration"
+
+# Exit immediately if appimaged is running
+pidof appimaged >/dev/null 2>&1 && exit 0
+
+# Exit immediately if $DESKTOPINTEGRATION is not empty
+if [ ! -z "$DESKTOPINTEGRATION" ] ; then
+  exit 0
+fi
+
+# Check whether dependencies are present in base system (we do not bundle these)
+# http://cgit.freedesktop.org/xdg/desktop-file-utils/
+check_dep desktop-file-validate
+check_dep update-desktop-database
+check_dep desktop-file-install
+check_dep xdg-icon-resource
+check_dep xdg-mime
+check_dep xdg-desktop-menu
+
+# Exit immediately if one of these files is present (disabled per app)
+check_prevent "$HOME/.local/share/$VENDORPREFIX/${APP}_no_desktopintegration"
+check_prevent "/usr/share/$VENDORPREFIX/${APP}_no_desktopintegration"
+check_prevent "/etc/$VENDORPREFIX/${APP}_no_desktopintegration"
+
+if [ ! -f "$DESKTOPFILE" ] ; then
+  echo "Desktop file is missing. Please run ${THIS} from within an AppImage."
+  exit 0
+fi
+
+if [ -z "$APPIMAGE" ] ; then
+  APPIMAGE="$APPDIR/AppRun"
+  # Not running from within an AppImage; hence using the AppRun for Exec=
+fi
+
+ICONFILE="$APPDIR/.DirIcon"
+
+# $XDG_DATA_DIRS contains the default paths /usr/local/share:/usr/share
+# desktop file has to be installed in an applications subdirectory
+# of one of the $XDG_DATA_DIRS components
+if [ -z "$XDG_DATA_DIRS" ] ; then
+  echo "\$XDG_DATA_DIRS is missing. Please run ${THIS} from within an AppImage."
+  exit 0
+fi
+
+# Check if the desktop file is already there
+# and if so, whether it points to the same AppImage
+if [ -e "$DESTINATION_DIR_DESKTOP/$VENDORPREFIX-$DESKTOPFILE_NAME" ] ; then
+  # echo "$DESTINATION_DIR_DESKTOP/$VENDORPREFIX-$DESKTOPFILE_NAME already there"
+  EXEC=$(grep "^Exec=" "$DESTINATION_DIR_DESKTOP/$VENDORPREFIX-$DESKTOPFILE_NAME" | head -n 1 | cut -d " " -f 1)
+  # echo $EXEC
+  if [ "Exec=\"$APPIMAGE\"" == "$EXEC" ] ; then
+    exit 0
+  fi
+fi
+
+# We ask the user only if we have found no reason to skip until here
+if [ -z "$SKIP" ] ; then
+  set +e
+  "$APPDIR/dialog" "AppImage - $APP_FULL"
+  RETURN=$?
+  set -e
+fi
+
+RET_LAUNCH_APP=0       # launch app
+RET_MENU_ENTRY=1       # create desktop menu entry
+RET_DISABLE_MESSAGE=2  # disable the desktopintegration message
+RET_CLOSE_WINDOW=3     # window was closed with ALT+F4/ESC/X-button
+
+if [ $RETURN -eq $RET_DISABLE_MESSAGE ] ; then
+  mkdir -p "$STAMP_DIR"
+  touch "$STAMP_DIR/${APP}_no_desktopintegration"
+  exit 0
+elif [ $RETURN -eq $RET_MENU_ENTRY ] ; then
+  SKIP=
+else
+  exit 0
+fi
+
+# If the user has agreed, rewrite and install the desktop file, and the MIME information
+if [ -z "$SKIP" ] ; then
+  # desktop-file-install is supposed to install .desktop files to the user's
+  # applications directory when run as a non-root user,
+  # and to /usr/share/applications if run as root
+  # but that does not really work for me...
+  #
+  # For Exec we must use quotes
+  # For TryExec quotes is not supported, so, space must be replaced to \s
+  # https://askubuntu.com/questions/175404/how-to-add-space-to-exec-path-in-a-thumbnailer-descrption/175567
+  RESOURCE_NAME=$(echo "$VENDORPREFIX-$DESKTOPFILE_NAME" | sed -e 's/.desktop//g')
+  desktop-file-install --rebuild-mime-info-cache \
+    --vendor=$VENDORPREFIX --set-key=Exec --set-value="\"${APPIMAGE}\" %U" \
+    --set-key=X-AppImage-Comment --set-value="Generated by ${THIS}" \
+    --set-icon="$RESOURCE_NAME" --set-key=TryExec --set-value=${APPIMAGE// /\\s} "$DESKTOPFILE" \
+    --dir "$DESTINATION_DIR_DESKTOP"
+  chmod a+x "$DESTINATION_DIR_DESKTOP/"*
+  # echo $RESOURCE_NAME
+
+  # delete "Actions" entry and add an "Uninstall" action
+  sed -i -e '/^Actions=/d' "$DESTINATION_DIR_DESKTOP/$VENDORPREFIX-$DESKTOPFILE_NAME"
+  cat >> "$DESTINATION_DIR_DESKTOP/$VENDORPREFIX-$DESKTOPFILE_NAME" << EOF
+
+Actions=Uninstall;
+
+[Uninstall]
+Name=Remove desktop integration for $APP_FULL
+Exec="$APPIMAGE" --remove-appimage-desktop-integration
+
+EOF
+
+  # Install the icon files for the application; TODO: scalable
+  ICONS=$(find "${APPDIR}/usr/share/icons/" -iwholename "*/apps/${APP}.png" 2>/dev/null || true)
+  for ICON in $ICONS ; do
+    ICON_SIZE=$(echo "${ICON}" | rev | cut -d "/" -f 3 | rev | cut -d "x" -f 1)
+    xdg-icon-resource install --context apps --size ${ICON_SIZE} "${ICON}" "${RESOURCE_NAME}"
+  done
+
+  # Install mime type
+  find "${APPDIR}/usr/share/mime/" -type f -name *xml -exec xdg-mime install $SYSTEM_WIDE --novendor {} \; 2>/dev/null || true
+
+  # Install the icon files for the mime type; TODO: scalable
+  ICONS=$(find "${APPDIR}/usr/share/icons/" -iwholename "*/mimetypes/*.png" 2>/dev/null || true)
+  for ICON in $ICONS ; do
+    ICON_SIZE=$(echo "${ICON}" | rev | cut -d "/" -f 3 | rev | cut -d "x" -f 1)
+    xdg-icon-resource install --context mimetypes --size ${ICON_SIZE} "${ICON}" $(basename $ICON | sed -e 's/.png//g')
+  done
+
+  xdg-desktop-menu forceupdate
+  gtk-update-icon-cache # for MIME
+fi

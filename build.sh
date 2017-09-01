@@ -9,10 +9,8 @@ LOWERAPP="vlc"
 JOBS=4
 MULTIARCH=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
 
-sudo apt-get autoremove -y --purge chromium-* google-chrome-stable openjdk-* oracle-java* postgresql-*
 sudo add-apt-repository -y ppa:djcj/gnutls-patched
 sudo apt-get -y update
-sudo apt-get -y upgrade
 sudo apt-get -y install --no-install-recommends \
  autoconf \
  automake \
@@ -271,9 +269,7 @@ move_lib
 delete_blacklisted
 rm -rvf usr/lib/$MULTIARCH/pulseaudio/ usr/lib/$MULTIARCH/libpulse.so.0  # pulseaudio issues
 rm -rf $(echo "$PWD" | cut -d '/' -f2)  # removes i.e. "home" from AppDir
-get_desktop
-fix_desktop ${LOWERAPP}.desktop
-sed -i "s|/usr/bin/vlc|${LOWERAPP}.wrapper|g" ${LOWERAPP}.desktop  # "can't find /usr/bin/vlc"
+cp "$TOP/vlc.desktop" .
 get_icon
 patch_usr
 get_apprun

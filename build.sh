@@ -66,8 +66,6 @@ sudo apt-get -y install --no-install-recommends \
  wget \
  zlib1g-dev
 
-./dialog/build-dialog.sh
-
 VERSION=$(wget -q "https://www.videolan.org/vlc/#download" -O - | grep -o -E '"Linux","latestVersion":"([^"#]+)"' | cut -d'"' -f6)
 TOP="$PWD"
 
@@ -89,13 +87,14 @@ wget -c "http://download.videolan.org/pub/videolan/vlc/$VERSION/vlc-$VERSION.tar
 # sources
 cat <<EOF> SOURCES
 vlc:         http://download.videolan.org/pub/videolan/vlc/$VERSION/vlc-$VERSION.tar.xz
-ffmpeg:      https://github.com/FFmpeg/FFmpeg.git              $(git -C ffmpeg log -1 | head -n1) branch release/2.8
-libdvdcss:   http://code.videolan.org/videolan/libdvdcss.git   $(git -C libdvdcss log -1 | head -n1)
-libdvdread:  http://code.videolan.org/videolan/libdvdread.git  $(git -C libdvdread log -1 | head -n1)
-libdvdnav:   http://code.videolan.org/videolan/libdvdnav.git   $(git -C libdvdnav log -1 | head -n1)
-libbluray:   http://git.videolan.org/git/libbluray.git         $(git -C libbluray log -1 | head -n1)
-x264:        http://git.videolan.org/git/x264.git              $(git -C x264 log -1 | head -n1)
-x265:        https://bitbucket.org/multicoreware/x265          commit $(cd x265 && hg log -r. --template "{node}")
+ffmpeg:      https://github.com/FFmpeg/FFmpeg.git               $(git -C ffmpeg log -1 | head -n1) branch release/2.8
+libdvdcss:   http://code.videolan.org/videolan/libdvdcss.git    $(git -C libdvdcss log -1 | head -n1)
+libdvdread:  http://code.videolan.org/videolan/libdvdread.git   $(git -C libdvdread log -1 | head -n1)
+libdvdnav:   http://code.videolan.org/videolan/libdvdnav.git    $(git -C libdvdnav log -1 | head -n1)
+libbluray:   http://git.videolan.org/git/libbluray.git          $(git -C libbluray log -1 | head -n1)
+x264:        http://git.videolan.org/git/x264.git               $(git -C x264 log -1 | head -n1)
+x265:        https://bitbucket.org/multicoreware/x265           commit $(cd x265 && hg log -r. --template "{node}")
+dialog:      https://github.com/darealshinji/AppImageKit-dialog
 
 Build system:
 $(lsb_release -irc)
@@ -273,9 +272,9 @@ patch_usr
 get_apprun
 
 # desktop integration
-cp "$TOP/dialog/build/dialog" .
+wget -c https://github.com/darealshinji/AppImageKit-dialog/releases/download/continuous/dialog-x86_64 -O dialog
 cp "$TOP/dialog/desktopintegration.sh" usr/bin/${LOWERAPP}.wrapper
-chmod a+x usr/bin/${LOWERAPP}.wrapper
+chmod a+x dialog usr/bin/${LOWERAPP}.wrapper
 
 cd ..
 generate_type2_appimage

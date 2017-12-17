@@ -273,7 +273,7 @@ get_apprun
 
 # desktop integration
 wget -c https://github.com/darealshinji/AppImageKit-dialog/releases/download/continuous/dialog-x86_64 -O dialog
-cp "$TOP/dialog/desktopintegration.sh" usr/bin/${LOWERAPP}.wrapper
+cp "$TOP/dialog-desktopintegration.sh" usr/bin/${LOWERAPP}.wrapper
 chmod a+x dialog usr/bin/${LOWERAPP}.wrapper
 
 cd ..

@@ -276,6 +276,8 @@ wget -c https://github.com/darealshinji/AppImageKit-dialog/releases/download/con
 cp "$TOP/dialog-desktopintegration.sh" usr/bin/${LOWERAPP}.wrapper
 chmod a+x dialog usr/bin/${LOWERAPP}.wrapper
 
+GLIBC_NEEDED=$(glibc_needed)
+
 cd ..
 generate_type2_appimage
 

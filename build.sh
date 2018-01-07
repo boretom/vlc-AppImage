@@ -62,6 +62,7 @@ sudo apt-get -y install --no-install-recommends \
  libxpm-dev \
  lua5.2 \
  mercurial \
+ patch \
  pkg-config \
  wget \
  zlib1g-dev
@@ -218,6 +219,7 @@ tar xf vlc-$VERSION.tar.xz
 cd vlc-$VERSION
 ./configure --prefix=/usr --disable-rpath --enable-skins2 --disable-ncurses
 sed -i '/# pragma STDC/d' config.h  # -Wunknown-pragmas
+patch -p1 < "$TOP/x264_bit_depth.patch"
 make clean
 make -j$JOBS
 make install-strip DESTDIR="$BUILD_ROOT"
@@ -237,6 +239,7 @@ cd $APP.AppDir
 cp -r ../usr .
 cp -r /usr/lib/$MULTIARCH/qt4/plugins/ ./usr/lib/
 cp ../SOURCES .
+cp "$TOP/x264_bit_depth.patch" .
 
 # qt.conf
 cat <<EOF> ./usr/bin/qt.conf

@@ -1,0 +1,10 @@
+--- a/modules/codec/x264.c
++++ b/modules/codec/x264.c
+@@ -847,6 +847,7 @@
+     char *psz_profile = var_GetString( p_enc, SOUT_CFG_PREFIX "profile" );
+     if( psz_profile )
+     {
++        int x264_bit_depth = p_sys->param.i_bitdepth;
+         const int mask = x264_bit_depth > 8 ? X264_CSP_HIGH_DEPTH : 0;
+ 
+ 

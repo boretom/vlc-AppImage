@@ -4,17 +4,27 @@ set -x
 
 export LANG=C
 
+apt-get update
+apt-get --yes install software-properties-common vim
+
 APP="VLC"
 LOWERAPP="vlc"
 JOBS=4
 MULTIARCH=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
+export CC=gcc-7
+export CXX=g++-7
 
+add-apt-repository ppa:ubuntu-toolchain-r/test --yes
+apt-get update
 sudo apt-get -y install --no-install-recommends \
  autoconf \
  automake \
+ bison \
  build-essential \
  cmake \
  fuse \
+ gcc-7 \
+ g++-7 \
  gettext \
  git \
  librsvg2-bin \
@@ -22,6 +32,7 @@ sudo apt-get -y install --no-install-recommends \
  libasound2-dev \
  libass-dev \
  libcddb2-dev \
+ libchromaprint-dev \
  libdbus-1-dev \
  libfontconfig1-dev \
  libfreetype6-dev \
@@ -38,9 +49,6 @@ sudo apt-get -y install --no-install-recommends \
  libogg-dev \
  libpng-dev \
  libpulse-dev \
- libqt4-dev \
- libqt4-dev-bin \
- libqt4-opengl-dev \
  librsvg2-dev \
  libtag1-dev \
  libtar-dev \
@@ -64,6 +72,9 @@ sudo apt-get -y install --no-install-recommends \
  mercurial \
  patch \
  pkg-config \
+ protobuf-compiler \
+ qtbase5-private-dev \
+ libqt5svg5-dev \
  wget \
  zlib1g-dev
 
@@ -74,13 +85,15 @@ mkdir -p vlc-build
 cd vlc-build
 
 # download
-test -d ffmpeg || git clone --depth 1 -b release/2.8 "https://github.com/FFmpeg/FFmpeg.git" ffmpeg
+test -d ffmpeg || git clone --depth 1 -b release/4.2 "https://github.com/FFmpeg/FFmpeg.git" ffmpeg
 test -d libdvdcss || git clone --depth 1 "http://code.videolan.org/videolan/libdvdcss.git"
 test -d libdvdread || git clone --depth 1 "http://code.videolan.org/videolan/libdvdread.git"
 test -d libdvdnav || git clone --depth 1 "http://code.videolan.org/videolan/libdvdnav.git"
-test -d libbluray || git clone --depth 1 "http://git.videolan.org/git/libbluray.git"
-test -d x264 || git clone --depth 1 "http://git.videolan.org/git/x264.git"
-test -d x265 || hg clone "https://bitbucket.org/multicoreware/x265"
+test -d libbluray || git clone --depth 1 "http://code.videolan.org/videolan/libbluray.git"
+test -d x264 || git clone --depth 1 "http://code.videolan.org/videolan/x264.git"
+#test -d x265 || hg clone "https://bitbucket.org/multicoreware/x265"
+test -d x265 || git clone "https://github.com/videolan/x265"
+test -d patchelf || git clone "https://github.com/NixOS/patchelf.git"
 wget -c "http://www.tortall.net/projects/yasm/releases/yasm-1.3.0.tar.gz"
 wget -c "http://www.nasm.us/pub/nasm/releasebuilds/2.13.01/nasm-2.13.01.tar.xz"
 wget -c "http://download.videolan.org/pub/videolan/vlc/$VERSION/vlc-$VERSION.tar.xz"
@@ -88,14 +101,15 @@ wget -c "http://download.videolan.org/pub/videolan/vlc/$VERSION/vlc-$VERSION.tar
 # sources
 cat <<EOF> SOURCES
 vlc:         http://download.videolan.org/pub/videolan/vlc/$VERSION/vlc-$VERSION.tar.xz
-ffmpeg:      https://github.com/FFmpeg/FFmpeg.git               $(git -C ffmpeg log -1 | head -n1) branch release/2.8
+ffmpeg:      https://github.com/FFmpeg/FFmpeg.git               $(git -C ffmpeg log -1 | head -n1) branch release/4.2
 libdvdcss:   http://code.videolan.org/videolan/libdvdcss.git    $(git -C libdvdcss log -1 | head -n1)
 libdvdread:  http://code.videolan.org/videolan/libdvdread.git   $(git -C libdvdread log -1 | head -n1)
 libdvdnav:   http://code.videolan.org/videolan/libdvdnav.git    $(git -C libdvdnav log -1 | head -n1)
 libbluray:   http://git.videolan.org/git/libbluray.git          $(git -C libbluray log -1 | head -n1)
 x264:        http://git.videolan.org/git/x264.git               $(git -C x264 log -1 | head -n1)
-x265:        https://bitbucket.org/multicoreware/x265           commit $(cd x265 && hg log -r. --template "{node}")
+x265:        https://github.com/videolan/x265.git               $(git -C x265 log -1 | head -n1)
 dialog:      https://github.com/darealshinji/AppImageKit-dialog
+patchelf     https://github.com/NixOS/patchelf.git
 
 Build system:
 $(lsb_release -irc)
@@ -152,6 +166,16 @@ if [ ! -e ./usr/lib/libx265.so ]; then
   mkdir -p x265/source/build
   cd x265/source/build
   cmake .. -DCMAKE_CXX_FLAGS="$CXXFLAGS" -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS -s" -DCMAKE_INSTALL_PREFIX="$PREFIX" -DENABLE_CLI="OFF" -DENABLE_LIBNUMA="OFF"
+  make -j$JOBS
+  make install
+  cd -
+fi
+
+# patchelf
+if [ ! -e /usr/bin/patchelf ]; then
+  cd patchelf
+  ./bootstrap.sh
+  ./configure
   make -j$JOBS
   make install
   cd -
@@ -217,9 +241,10 @@ fi
 rm -rf vlc-$VERSION
 tar xf vlc-$VERSION.tar.xz
 cd vlc-$VERSION
-./configure --prefix=/usr --disable-rpath --enable-skins2 --disable-ncurses
+#./configure --prefix=/usr --disable-rpath --enable-skins2 --disable-ncurses
+./configure --prefix=/usr --disable-rpath --disable-ncurses
 sed -i '/# pragma STDC/d' config.h  # -Wunknown-pragmas
-patch -p1 < "$TOP/x264_bit_depth.patch"
+#patch -p1 < "$TOP/x264_bit_depth.patch"
 make clean
 make -j$JOBS
 make install-strip DESTDIR="$BUILD_ROOT"
@@ -227,7 +252,8 @@ cd -
 
 # refresh cache
 cd "$PREFIX/lib/vlc"
-LD_LIBRARY_PATH="$PREFIX/lib" ./vlc-cache-gen -f plugins
+rm plugins/*.dat
+LD_LIBRARY_PATH="$PREFIX/lib" ./vlc-cache-gen plugins
 cd -
 
 # move to AppDir
@@ -237,7 +263,7 @@ cd $APP.AppDir
 
 # copy files
 cp -r ../usr .
-cp -r /usr/lib/$MULTIARCH/qt4/plugins/ ./usr/lib/
+cp -r /usr/lib/$MULTIARCH/qt5/plugins/ ./usr/lib/
 cp ../SOURCES .
 cp "$TOP/x264_bit_depth.patch" .
 
